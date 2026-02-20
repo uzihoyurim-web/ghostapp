@@ -40,8 +40,11 @@ video {
 <button id="adminBtn">관리자</button>
 
 <script>
+<script>
 const video = document.getElementById('camera');
 const dot = document.getElementById('dot');
+let ghostStage = 0;
+let ghostInterval;
 
 navigator.mediaDevices.getUserMedia({
   video: { facingMode: "environment" }
@@ -50,16 +53,37 @@ navigator.mediaDevices.getUserMedia({
   video.srcObject = stream;
 });
 
+function startGhostStory() {
+  ghostStage = 0;
+  dot.style.display = "block";
+
+  ghostInterval = setInterval(() => {
+    ghostStage++;
+
+    // 점점 커짐
+    let size = 20 + ghostStage * 30;
+    dot.style.width = size + "px";
+    dot.style.height = size + "px";
+
+    // 화면 중앙 근처로 점점 이동
+    dot.style.left = (window.innerWidth/2 - size/2) + "px";
+    dot.style.top = (window.innerHeight/2 - size/2) + "px";
+
+    // 마지막 단계
+    if(ghostStage > 8){
+      clearInterval(ghostInterval);
+      dot.style.width = "2000px";
+      dot.style.height = "2000px";
+    }
+
+  }, 800 - ghostStage * 70); // 점점 빨라짐
+}
+
 document.getElementById("adminBtn").onclick = function() {
-  if(dot.style.display === "none") {
-    dot.style.display = "block";
-    dot.style.left = Math.random()*window.innerWidth + "px";
-    dot.style.top = Math.random()*window.innerHeight + "px";
-  } else {
-    dot.style.display = "none";
-  }
+  startGhostStory();
 };
 </script>
 
 </body>
 </html>
+
