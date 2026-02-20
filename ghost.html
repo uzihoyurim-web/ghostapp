@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<style>
+body { margin:0; overflow:hidden; background:black; }
+video {
+  position:absolute;
+  width:100%;
+  height:100%;
+  object-fit:cover;
+}
+#dot {
+  position:absolute;
+  width:20px;
+  height:20px;
+  background:red;
+  border-radius:50%;
+  display:none;
+  animation: pulse 1s infinite;
+}
+@keyframes pulse {
+  0% { transform:scale(1); opacity:1; }
+  50% { transform:scale(1.5); opacity:0.6; }
+  100% { transform:scale(1); opacity:1; }
+}
+#adminBtn {
+  position:absolute;
+  top:20px;
+  right:20px;
+  padding:10px;
+  background:white;
+}
+</style>
+</head>
+<body>
+
+<video autoplay playsinline id="camera"></video>
+<div id="dot"></div>
+<button id="adminBtn">관리자</button>
+
+<script>
+const video = document.getElementById('camera');
+const dot = document.getElementById('dot');
+
+navigator.mediaDevices.getUserMedia({ video: true })
+.then(stream => {
+  video.srcObject = stream;
+});
+
+document.getElementById("adminBtn").onclick = function() {
+  if(dot.style.display === "none") {
+    dot.style.display = "block";
+    dot.style.left = Math.random()*window.innerWidth + "px";
+    dot.style.top = Math.random()*window.innerHeight + "px";
+  } else {
+    dot.style.display = "none";
+  }
+};
+</script>
+
+</body>
+</html>
