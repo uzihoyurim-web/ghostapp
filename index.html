@@ -1,89 +1,157 @@
 <!DOCTYPE html>
 <html>
 <head>
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
 <style>
-body { margin:0; overflow:hidden; background:black; }
-video {
-  position:absolute;
-  width:100%;
-  height:100%;
-  object-fit:cover;
-}
-#dot {
-  position:absolute;
-  width:20px;
-  height:20px;
-  background:red;
-  border-radius:50%;
-  display:none;
-  animation: pulse 1s infinite;
-}
-@keyframes pulse {
-  0% { transform:scale(1); opacity:1; }
-  50% { transform:scale(1.5); opacity:0.6; }
-  100% { transform:scale(1); opacity:1; }
-}
-#adminBtn {
-  position:absolute;
-  top:20px;
-  right:20px;
-  padding:10px;
-  background:white;
-}
+  body { margin:0; overflow:hidden; background:black; }
+  video {
+    position:absolute;
+    width:100%;
+    height:100%;
+    object-fit:cover;
+  }
+
+  /* 관리자 버튼 */
+  #adminBtn {
+    position:absolute;
+    top:16px;
+    right:16px;
+    padding:10px 12px;
+    background:white;
+    border:0;
+    border-radius:10px;
+    z-index: 50;
+    font-size: 14px;
+  }
+
+  /* “발자국/핏방울” 하나 */
+  .mark {
+    position: absolute;
+    width: 70px;                 /* 기본 크기 */
+    height: 70px;
+    background-image: url("blood.png"); /* ✅ GitHub에 올린 이미지 파일명 */
+    background-size: contain;
+    background-repeat: no-repeat;
+    background-position: center;
+
+    opacity: 0;                  /* 처음엔 안 보임 */
+    transform: scale(0.85);      /* 살짝 작게 시작 */
+    animation: reveal 1.6s ease forwards; /* 서서히 등장 */
+    pointer-events: none;
+    z-index: 10;
+    filter: drop-shadow(0 6px 10px rgba(0,0,0,0.35));
+  }
+
+  /* 해리포터 발자국처럼 ‘스르륵’ 나타나는 애니메이션 */
+  @keyframes reveal {
+    0%   { opacity: 0; transform: scale(0.80); }
+    60%  { opacity: 0.85; transform: scale(1.02); }
+    100% { opacity: 1; transform: scale(1.00); }
+  }
+
+  /* 분위기용: 아주 약한 비네팅(선택) */
+  .vignette {
+    position:absolute;
+    inset:0;
+    pointer-events:none;
+    z-index: 5;
+    background: radial-gradient(circle at center, rgba(0,0,0,0) 45%, rgba(0,0,0,0.35) 100%);
+  }
 </style>
 </head>
 <body>
 
 <video autoplay playsinline id="camera"></video>
-<div id="dot"></div>
+<div class="vignette"></div>
 <button id="adminBtn">관리자</button>
 
 <script>
-const video = document.getElementById('camera');
-const dot = document.getElementById('dot');
-let ghostStage = 0;
-let ghostInterval;
+  const video = document.getElementById('camera');
+  const adminBtn = document.getElementById('adminBtn');
 
-navigator.mediaDevices.getUserMedia({
-  video: { facingMode: "environment" }
-})
-.then(stream => {
-  video.srcObject = stream;
-});
+  // ✅ 카메라 (뒷카메라)
+  navigator.mediaDevices.getUserMedia({
+    video: { facingMode: "environment" },
+    audio: false
+  })
+  .then(stream => { video.srcObject = stream; })
+  .catch(err => {
+    alert("카메라 오류: " + err.name + "\\nSafari에서 카메라 허용했는지 확인해줘!");
+  });
 
-function startGhostStory() {
-  ghostStage = 0;
-  dot.style.display = "block";
+  // ====== “다가오는 스토리 경로” ======
+  // 화면 비율(0~1)로 위치를 적어두면 기기마다 비슷한 느낌으로 보임
+  // s: 크기 배율 (점점 커져서 ‘가까워지는’ 느낌)
+  const path = [
+    {x: 0.18, y: 0.28, s: 0.70},
+    {x: 0.28, y: 0.36, s: 0.80},
+    {x: 0.38, y: 0.44, s: 0.90},
+    {x: 0.48, y: 0.50, s: 1.00},
+    {x: 0.56, y: 0.55, s: 1.10},
+    {x: 0.60, y: 0.58, s: 1.20},
+    {x: 0.54, y: 0.56, s: 1.35},
+    {x: 0.50, y: 0.55, s: 1.55}
+  ];
 
-  ghostInterval = setInterval(() => {
-    ghostStage++;
+  let step = 0;
+  let timer = null;
+  let marks = [];
 
-    // 점점 커짐
-    let size = 20 + ghostStage * 30;
-    dot.style.width = size + "px";
-    dot.style.height = size + "px";
+  function clearMarks() {
+    if (timer) { clearTimeout(timer); timer = null; }
+    marks.forEach(m => m.remove());
+    marks = [];
+    step = 0;
+  }
 
-    // 화면 중앙 근처로 점점 이동
-    dot.style.left = (window.innerWidth/2 - size/2) + "px";
-    dot.style.top = (window.innerHeight/2 - size/2) + "px";
+  // 핏방울(발자국) 하나를 화면에 “서서히” 찍는다
+  function placeMark(p) {
+    const m = document.createElement("div");
+    m.className = "mark";
 
-    // 마지막 단계
-    if(ghostStage > 8){
-      clearInterval(ghostInterval);
-      dot.style.width = "2000px";
-      dot.style.height = "2000px";
-    }
+    // 크기: 점점 커지게
+    const base = 70 * (p.s ?? 1.0);
+    m.style.width  = base + "px";
+    m.style.height = base + "px";
 
-  }, 800 - ghostStage * 70); // 점점 빨라짐
-}
+    // 위치: 화면 비율 기반
+    const left = window.innerWidth  * p.x - base / 2;
+    const top  = window.innerHeight * p.y - base / 2;
+    m.style.left = left + "px";
+    m.style.top  = top + "px";
 
-document.getElementById("adminBtn").onclick = function() {
-  startGhostStory();
-};
+    // 살짝 랜덤 회전 (자연스럽게)
+    const rot = (Math.random() * 18 - 9);
+    m.style.transform = `scale(0.85) rotate(${rot}deg)`;
+
+    document.body.appendChild(m);
+    marks.push(m);
+  }
+
+  // 한 단계씩 “발자국처럼” 등장 + 점점 빨라짐
+  function runStory() {
+    if (step >= path.length) { timer = null; return; }
+
+    placeMark(path[step]);
+
+    // 텀: 처음엔 느리게 → 점점 빠르게 (다가오는 느낌)
+    const delay = Math.max(380, 1550 - step * 170);
+    step++;
+
+    timer = setTimeout(runStory, delay);
+  }
+
+  // 관리자 버튼: 스토리 시작(리셋 후 재생)
+  adminBtn.addEventListener("click", () => {
+    clearMarks();
+    runStory();
+  });
+
+  // 회전/리사이즈하면 위치가 틀어질 수 있어서 리셋(연출용 안전장치)
+  window.addEventListener("resize", () => {
+    if (marks.length) clearMarks();
+  });
 </script>
 
 </body>
 </html>
-
-
